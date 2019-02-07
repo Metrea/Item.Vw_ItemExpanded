@@ -4,11 +4,11 @@
 -- Create Date: 2018-09-28
 --              2018-10-01  Naming convention changes
 --              2018-10-02  Modified the join condition to show all rows
---				2019-02-07	Added Freight Class Calculation 
+--		2019-02-07	Added Freight Class Calculation 
 -- =====================================================================================
 CREATE VIEW [Item].[Vw_ItemExpanded] AS
 SELECT
-	   [ItemKey]
+	[ItemKey]
       ,[Item]
 	  ,[Status]
       ,[ItemType]

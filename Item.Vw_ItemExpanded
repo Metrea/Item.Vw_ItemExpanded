@@ -1,0 +1,114 @@
+-- =====================================================================================
+-- Author:		Chandler Rosenthal
+-- Description:	Denormalized Item View with Core & Features
+-- Create Date: 2018-09-28
+--              2018-10-01  Naming convention changes
+--              2018-10-02  Modified the join condition to show all rows
+--				2019-02-07	Added Freight Class Calculation 
+-- =====================================================================================
+CREATE VIEW [Item].[Vw_ItemExpanded] AS
+SELECT
+	   [ItemKey]
+      ,[Item]
+	  ,[Status]
+      ,[ItemType]
+      ,[ERPDescription]
+	  ,[ItemShortDesc]
+      ,[ItemLongDesc]
+      ,[CorpMBCd]
+      ,[NetWgt]
+      ,[MaterialWgt]
+      ,[GrossWgt]
+
+	  -- Case Cube Calculation
+      ,CAST(ROUND([Cube],2) AS numeric(18,2)) = ([Case_Length]*[Case_Width]*[Case_Height])/1728
+      ,CAST(ROUND([Case_Length],2) AS numeric(18,2))
+      ,CAST(ROUND([Case_Width],2) AS numeric(18,2))
+      ,CAST(ROUND([Case_Height],2) AS numeric(18,2))
+	  ,[UOM]
+      ,[ProdType]
+      ,[UPC]
+      ,[Category]
+      ,[ProdLine]
+      ,[Brand]
+      ,[FinProdLine]
+      ,[MatLinDesc]
+      ,[MatCostType]
+
+	  -- NMFC Calculation
+      ,[NMFC]
+
+	  -- Freight Class Calculation
+      ,(CASE
+			WHEN [ProdLine] = 'Stirrer' THEN 100
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) <1 THEN 400
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 1 AND 2 THEN 300
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 2 AND 4 THEN 250
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 4 AND 6 THEN 150
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 6 AND 8 THEN 125
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 8 AND 10 THEN 100
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 10 AND 12 THEN 92.5
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 12 AND 15 THEN 85
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 15 AND 22.5 THEN 70
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) BETWEEN 22.5 AND 30 THEN 65
+			WHEN NULLIF([GrossWgt],0) / (NULLIF([Case_Length],0)*NULLIF([Case_Width],0)*NULLIF([Case_Height],0)/1728) > 30 THEN 60
+			ELSE NULL
+		END) AS [FrtClass]
+      ,[CasePkQty]
+	  
+	  -- Warehouse shipping measures
+	  ,[WHS_Ti]  =   Cast([WHS_Ti] AS INT)
+      ,[WHS_Hi]  =   Cast([WHS_Hi] AS INT)
+	  ,[WHS_TiHi]    = CASE WHEN ([WHS_Ti] IS NOT NULL AND [WHS_Ti] <> ' ') 
+	                 THEN (CONCAT([WHS_Ti],'X',[WHS_Hi])) ELSE NULL END
+  	  ,[WHS_CasesPerPallet] = Cast([WHS_Ti] AS INT)*Cast([WHS_Hi] AS INT)
+	  ,[WHS_PltStack] = 1
+
+	  -- Less than Truck Load shipping measures
+	  ,[LTL_Ti]  =   Cast([LTL_Ti] AS INT)
+      ,[LTL_Hi]  =   Cast([LTL_Hi] AS INT)
+      ,[LTL_TiHi] = CASE WHEN ([LTL_Ti] IS NOT NULL AND [LTL_Ti] <> ' ') 
+	                 THEN (CONCAT([LTL_Ti],'X',[LTL_Hi])) ELSE NULL END
+	  ,[LTL_CasesPerPallet]  = Cast([LTL_Ti] AS INT)*Cast([LTL_Hi] AS INT)
+	  ,[LTL_PltStack] = 1
+
+	  -- Truck Load shipping measures
+      ,[TL_Ti]   =   Cast([TL_Ti] AS INT)
+      ,[TL_Hi]   =   Cast([TL_Hi] AS INT)
+	  ,[TL_TiHi]  = CASE WHEN ([TL_Ti] IS NOT NULL AND [TL_Ti] <> ' ') 
+	                 THEN (CONCAT([TL_Ti],'X',[TL_Hi])) ELSE NULL END
+      ,[TL_CasesPerPallet]   = Cast([TL_Ti] AS INT)*Cast([TL_Hi] AS INT)
+	  ,[TL_PltStack] = 1
+
+      ,[MinOrderQty]
+      ,[CntryofOrg]
+      ,[SlvPkgQty]
+      ,[Product]
+      ,[BaseProd]
+      ,[RecycleCode]
+      ,[Renewable]
+      ,[GTIN]
+      ,[Process]
+      ,[CurCatalog]
+      ,[MasterFacility]
+      ,[FinDeptCode]
+      ,[StockStatus]
+	  ,[Color]
+	  ,[Shape]
+	  ,[Depth]
+      ,[StockStatusUpdate]
+      ,[InsertDate]
+      ,[LastUpdatedBy]
+      ,[LastUpdate]
+     
+    FROM 
+	    (
+			SELECT I.*, FeatureLabel, FeatureValue
+			FROM [Item].[Item] I
+				 LEFT OUTER JOIN Item.ItemFeature IFD ON I.ItemKey = IFD.ItemKey
+				 LEFT OUTER JOIN Item.ItemFeatureMaster IFM 
+								ON	IFD.FeatureKey = IFM.FeatureKey
+								AND FeatureLabel IN ('Color','Shape','Depth')
+								AND FeatureValue IS NOT NULL
+         ) MAIN
+		 PIVOT  (MAX(FeatureValue) FOR FeatureLabel IN ([Color], [Shape], [Depth])) AS pv
